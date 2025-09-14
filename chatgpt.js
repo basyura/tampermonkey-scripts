@@ -96,19 +96,28 @@
   };
 
   const scrollToTop = (e) => {
+    // Vim-like: "gg" to go to top
     gCount += 1;
 
     if (gCount === 2) {
       gCount = 0;
       clearTimeout(keyDownTimer);
-      getScrollContainer().scrollTop = 0;
+      const container = getScrollContainer();
+      if (container) {
+        container.scrollTop = 0;
+      } else if (document.scrollingElement) {
+        document.scrollingElement.scrollTop = 0;
+      } else {
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
       return;
     }
 
     clearTimeout(keyDownTimer);
+    // 許容時間をやや長めにして実運用で反応しやすくする
     keyDownTimer = setTimeout(() => {
       gCount = 0;
-    }, 300);
+    }, 800);
   };
 
   const getKeyId = (e) => {
@@ -147,7 +156,23 @@
   };
 
   const getScrollContainer = () => {
-    return document.querySelector("main > div > div > div > div > div");
+    // 既定のスクロールコンテナ（UI変更に弱いため順にフォールバック）
+    const selector = "main > div > div > div > div > div";
+    let el = document.querySelector(selector);
+    if (el) return el;
+
+    // より汎用的に、main配下でスクロール可能な要素を探索
+    const main = document.querySelector("main") || document.body;
+    if (!main) return null;
+    const candidates = main.querySelectorAll("div, section, main");
+    for (const c of candidates) {
+      const style = getComputedStyle(c);
+      const overflowY = style.overflowY;
+      if ((overflowY === "auto" || overflowY === "scroll") && c.scrollHeight > c.clientHeight + 8) {
+        return c;
+      }
+    }
+    return document.scrollingElement || document.documentElement || null;
   };
 
   document.body.addEventListener("keydown", attachEvent, { capture: true });
