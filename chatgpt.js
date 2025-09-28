@@ -32,6 +32,9 @@
   const attachEvent = (e) => {
     if (e.target.id == "prompt-textarea") {
       editAction(e);
+    } else if (isTypingTarget(e.target)) {
+      // 入力系にフォーカス中は通常モードのキー操作を無効化
+      return;
     } else {
       normalAction(e);
     }
@@ -76,6 +79,11 @@
   };
 
   const normalAction = (e) => {
+    // 入力系や contenteditable へフォーカス時は keyActions を実行しない
+    if (isTypingTarget(document.activeElement) || isTypingTarget(e.target)) {
+      return;
+    }
+
     const id = getKeyId(e);
     const action = keyActions[id];
 
@@ -89,6 +97,21 @@
 
     e.preventDefault();
     action(e);
+  };
+
+  const isTypingTarget = (el) => {
+    if (!el) return false;
+    // shadow root 内の実フォーカス要素を考慮
+    if (el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    if (el.isContentEditable) return true;
+    // role=textbox / aria-multiline 等の WAI-ARIA も考慮
+    const role = el.getAttribute && el.getAttribute("role");
+    if (role === "textbox" || role === "searchbox") return true;
+    if (el.closest && el.closest('[contenteditable="true"]')) return true;
+    return false;
   };
 
   const scroll = (e, value) => {
