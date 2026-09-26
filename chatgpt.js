@@ -36,8 +36,6 @@
       return;
     }
 
-    console.log(e.target);
-
     if (e.target.getAttribute("aria-label") == "ChatGPT に聞く") {
       editAction(e);
     } else {
@@ -94,6 +92,7 @@
       return;
     }
 
+    e.stopImmediatePropagation();
     e.preventDefault();
     action(e);
   };
@@ -144,10 +143,14 @@
     const container = getScrollContainer();
     container.scrollTop = container.scrollHeight;
   };
+  const getTextArea = () => {
+    const textEle = document.querySelector("div[aria-label='ChatGPT に聞く']");
+    return textEle;
+  };
 
   const changeToInsertMode = (e) => {
-    const txt = document.querySelector("#prompt-textarea");
-    txt.focus();
+    const ele = getTextArea();
+    ele.focus();
   };
 
   const dispatchEvent = (e, key) => {
@@ -207,13 +210,7 @@
     return null;
   };
 
-  document.body.addEventListener("keydown", attachEvent, { capture: true });
-  setTimeout(() => {
-    document.body.removeEventListener("keydown", attachEvent, {
-      capture: true,
-    });
-    document.body.addEventListener("keydown", attachEvent, { capture: true });
-  }, 3000);
+  window.addEventListener("keydown", attachEvent, { capture: true });
 
   let initialized = false;
 
