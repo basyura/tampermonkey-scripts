@@ -110,7 +110,7 @@
       clearTimeout(keyDownTimer);
       const container = getScrollContainer();
       if (container) {
-        container.scrollTop = 0;
+        container.scrollTop = -container.scrollHeight;
       } else if (document.scrollingElement) {
         document.scrollingElement.scrollTop = 0;
       } else {
