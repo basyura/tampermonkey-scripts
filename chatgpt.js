@@ -98,7 +98,10 @@
   };
 
   const scroll = (e, value) => {
-    getScrollContainer().scrollTop += value;
+    const container = getScrollContainer();
+    if (container) {
+      container.scrollTop += value;
+    }
   };
 
   const scrollToTop = (e) => {
@@ -141,7 +144,9 @@
 
   const scrollToBottom = (e) => {
     const container = getScrollContainer();
-    container.scrollTop = container.scrollHeight;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
   const getTextArea = () => {
     const textEle = document.querySelector("div[aria-label='ChatGPT に聞く']");
@@ -165,49 +170,28 @@
     e.target.dispatchEvent(newEvent);
   };
 
-  function getSafeQuerySelector(el) {
-    if (el.id) {
-      return `#${CSS.escape(el.id)}`;
-    }
-
-    const parts = [];
-    while (el && el.nodeType === 1 && el !== document.documentElement) {
-      const parent = el.parentElement;
-      if (!parent) break;
-
-      const index = Array.from(parent.children).indexOf(el) + 1;
-      parts.unshift(`${el.tagName.toLowerCase()}:nth-child(${index})`);
-      el = parent;
-    }
-
-    return parts.join(" > ");
-  }
-
-  //let query = 'body:nth-child(2) > div:nth-child(6) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1)';
-  let query = null;
   const getScrollContainer = () => {
-    let ele = null;
-    if (query != null) {
-      ele = document.querySelector(query);
-    }
-    if (ele == null) {
-      const first = Array.from(document.querySelectorAll("*")).find(
-        (e) => e.scrollTop !== 0
-      );
-      if (first) {
-        query = getSafeQuerySelector(first);
-      }
-      ele = document.querySelector(query);
+    const timeline = document.querySelector(
+      "[data-app-action-timeline-scroll]"
+    );
+    if (timeline) {
+      return timeline;
     }
 
-    if (ele != null) {
-      return ele;
-    }
-
-    console.log("container not found: " + query);
-    //alert("no-container");
-
-    return null;
+    return (
+      Array.from(document.querySelectorAll("main, main *"))
+        .filter((element) => {
+          const overflowY = getComputedStyle(element).overflowY;
+          return (
+            element.scrollHeight > element.clientHeight &&
+            (overflowY === "auto" || overflowY === "scroll")
+          );
+        })
+        .sort(
+          (a, b) =>
+            b.scrollHeight - b.clientHeight - (a.scrollHeight - a.clientHeight)
+        )[0] ?? null
+    );
   };
 
   window.addEventListener("keydown", attachEvent, { capture: true });
@@ -219,7 +203,7 @@
       return;
     }
 
-    let textEle = document.querySelector("#prompt-textarea");
+    let textEle = getTextArea();
     if (textEle == null) {
       setTimeout(() => iniFunc(), 500);
       return;
