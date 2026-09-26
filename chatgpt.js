@@ -22,6 +22,7 @@
     g: (e) => scrollToTop(e),
     "shift+g": (e) => scrollToBottom(e),
     i: (e) => changeToInsertMode(e),
+    s: (e) => changeToInsertMode(e),
     "ctrl+d": (e) => scroll(e, 500),
     "ctrl+u": (e) => scroll(e, -500),
     "ctrl+w": () => {}, // 画面を閉じないため
@@ -30,46 +31,49 @@
   };
 
   const attachEvent = (e) => {
-    if (e.target.id == "prompt-textarea") {
-      editAction(e);
-    } else if (isTypingTarget(e.target)) {
-      // 入力系にフォーカス中は通常モードのキー操作を無効化
+    const placeholder = e.srcElement.placeholder;
+    if (placeholder != null && placeholder.indexOf("検索") > 0) {
       return;
+    }
+
+    console.log(e.target);
+
+    if (e.target.getAttribute("aria-label") == "ChatGPT に聞く") {
+      editAction(e);
     } else {
       normalAction(e);
     }
   };
 
   const editAction = (e) => {
-    //console.log("editAction start", e)
     if (e.isComposing) {
-      //console.log("coposing");
       return;
     }
 
     if (e.key == "Escape") {
-      //console.log("escape");
       e.target.blur();
       return;
     }
 
-    if (e.key != "Enter" && e.key != "]") {
-      //console.log("not enter");
-      return;
-    }
-
-    if (e.shiftKey) {
-      //console.log("shift");
-      return;
-    }
-
-    if (!e.ctrlKey) {
-      //console.log("dispatch enter");
+    if (e.ctrlKey && e.key == "m") {
+      console.log("M Enter");
       dispatchEvent(e, "Enter");
       return;
     }
 
-    //console.log("submit start");
+    if (e.key != "Enter" && e.key != "]") {
+      return;
+    }
+
+    if (e.shiftKey) {
+      return;
+    }
+
+    if (!e.ctrlKey) {
+      dispatchEvent(e, "Enter");
+      return;
+    }
+
     let ele = document.querySelector("#composer-submit-button");
     if (ele != null) {
       ele.click();
@@ -79,11 +83,6 @@
   };
 
   const normalAction = (e) => {
-    // 入力系や contenteditable へフォーカス時は keyActions を実行しない
-    if (isTypingTarget(document.activeElement) || isTypingTarget(e.target)) {
-      return;
-    }
-
     const id = getKeyId(e);
     const action = keyActions[id];
 
@@ -97,21 +96,6 @@
 
     e.preventDefault();
     action(e);
-  };
-
-  const isTypingTarget = (el) => {
-    if (!el) return false;
-    // shadow root 内の実フォーカス要素を考慮
-    if (el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
-
-    const tag = (el.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select") return true;
-    if (el.isContentEditable) return true;
-    // role=textbox / aria-multiline 等の WAI-ARIA も考慮
-    const role = el.getAttribute && el.getAttribute("role");
-    if (role === "textbox" || role === "searchbox") return true;
-    if (el.closest && el.closest('[contenteditable="true"]')) return true;
-    return false;
   };
 
   const scroll = (e, value) => {
@@ -178,24 +162,49 @@
     e.target.dispatchEvent(newEvent);
   };
 
-  const getScrollContainer = () => {
-    // 既定のスクロールコンテナ（UI変更に弱いため順にフォールバック）
-    const selector = "main > div > div > div > div > div";
-    let el = document.querySelector(selector);
-    if (el) return el;
-
-    // より汎用的に、main配下でスクロール可能な要素を探索
-    const main = document.querySelector("main") || document.body;
-    if (!main) return null;
-    const candidates = main.querySelectorAll("div, section, main");
-    for (const c of candidates) {
-      const style = getComputedStyle(c);
-      const overflowY = style.overflowY;
-      if ((overflowY === "auto" || overflowY === "scroll") && c.scrollHeight > c.clientHeight + 8) {
-        return c;
-      }
+  function getSafeQuerySelector(el) {
+    if (el.id) {
+      return `#${CSS.escape(el.id)}`;
     }
-    return document.scrollingElement || document.documentElement || null;
+
+    const parts = [];
+    while (el && el.nodeType === 1 && el !== document.documentElement) {
+      const parent = el.parentElement;
+      if (!parent) break;
+
+      const index = Array.from(parent.children).indexOf(el) + 1;
+      parts.unshift(`${el.tagName.toLowerCase()}:nth-child(${index})`);
+      el = parent;
+    }
+
+    return parts.join(" > ");
+  }
+
+  //let query = 'body:nth-child(2) > div:nth-child(6) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1)';
+  let query = null;
+  const getScrollContainer = () => {
+    let ele = null;
+    if (query != null) {
+      ele = document.querySelector(query);
+    }
+    if (ele == null) {
+      const first = Array.from(document.querySelectorAll("*")).find(
+        (e) => e.scrollTop !== 0
+      );
+      if (first) {
+        query = getSafeQuerySelector(first);
+      }
+      ele = document.querySelector(query);
+    }
+
+    if (ele != null) {
+      return ele;
+    }
+
+    console.log("container not found: " + query);
+    //alert("no-container");
+
+    return null;
   };
 
   document.body.addEventListener("keydown", attachEvent, { capture: true });
@@ -206,5 +215,30 @@
     document.body.addEventListener("keydown", attachEvent, { capture: true });
   }, 3000);
 
-  setTimeout(() => document.activeElement.blur(), 100);
+  let initialized = false;
+
+  let iniFunc = () => {
+    if (initialized) {
+      return;
+    }
+
+    let textEle = document.querySelector("#prompt-textarea");
+    if (textEle == null) {
+      setTimeout(() => iniFunc(), 500);
+      return;
+    }
+
+    if (location.href.includes("prompt=") || location.href.includes("q=")) {
+      if (textEle.innerText == "") {
+        setTimeout(() => iniFunc(), 500);
+        return;
+      }
+      document.querySelector("#composer-submit-button").click();
+    }
+
+    document.activeElement.blur();
+    initialized = true;
+  };
+
+  setTimeout(() => iniFunc(), 500);
 })();
