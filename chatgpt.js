@@ -72,7 +72,7 @@
       return;
     }
 
-    let ele = document.querySelector("#composer-submit-button");
+    const ele = document.querySelector("div.contents button[type='submit']");
     if (ele != null) {
       ele.click();
     }
