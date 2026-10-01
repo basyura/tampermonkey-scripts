@@ -72,7 +72,7 @@
       return;
     }
 
-    const ele = document.querySelector("div.contents button[type='submit']");
+    let ele = document.querySelector("div.contents button[type='submit']");
     if (ele != null) {
       ele.click();
     }
@@ -170,15 +170,33 @@
     e.target.dispatchEvent(newEvent);
   };
 
-  const getScrollContainer = () => {
-    const timeline = document.querySelector(
-      "[data-app-action-timeline-scroll]"
-    );
-    if (timeline) {
-      return timeline;
+  const getSafeQuerySelector = (el) => {
+    if (el.id) {
+      return `#${CSS.escape(el.id)}`;
     }
 
-    return (
+    const parts = [];
+    while (el && el.nodeType === 1 && el !== document.documentElement) {
+      const parent = el.parentElement;
+      if (!parent) break;
+
+      const index = Array.from(parent.children).indexOf(el) + 1;
+      parts.unshift(`${el.tagName.toLowerCase()}:nth-child(${index})`);
+      el = parent;
+    }
+
+    return parts.join(" > ");
+  };
+
+  const getScrollContainer = () => {
+    /*
+        const timeline = document.querySelector("[data-app-action-timeline-scroll]");
+        if (timeline) {
+            console.log("timeline")
+            return timeline;
+        }
+*/
+    const pane =
       Array.from(document.querySelectorAll("main, main *"))
         .filter((element) => {
           const overflowY = getComputedStyle(element).overflowY;
@@ -190,8 +208,22 @@
         .sort(
           (a, b) =>
             b.scrollHeight - b.clientHeight - (a.scrollHeight - a.clientHeight)
-        )[0] ?? null
+        )[0] ?? null;
+
+    if (pane != null) {
+      return pane;
+    }
+
+    console.log("pane is null");
+
+    const first = Array.from(document.querySelectorAll("*")).find(
+      (e) => e.scrollTop !== 0
     );
+
+    if (first == null) {
+      console.log("first is null");
+    }
+    return first;
   };
 
   window.addEventListener("keydown", attachEvent, { capture: true });
