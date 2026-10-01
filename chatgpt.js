@@ -75,6 +75,7 @@
     let ele = document.querySelector("div.contents button[type='submit']");
     if (ele != null) {
       ele.click();
+      setTimeout(() => ele.blur(), 500);
     }
 
     setTimeout(() => e.target.blur(), 200);
