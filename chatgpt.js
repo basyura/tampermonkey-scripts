@@ -32,7 +32,7 @@
 
   const attachEvent = (e) => {
     const placeholder = e.srcElement.placeholder;
-    if (placeholder != null && placeholder.indexOf("検索") > 0) {
+    if (placeholder != null && placeholder.indexOf("検索") >= 0) {
       return;
     }
 
